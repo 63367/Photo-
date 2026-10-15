@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📸 Photo Cam</title>
+<title>📸 Photo Cam → Telegram</title>
 <style>
   body { font-family: sans-serif; background: #111; color: #fff; text-align: center; margin: 0; padding: 20px; }
   video, canvas { max-width: 90%; border-radius: 12px; margin: 10px auto; display: block; }
   button { background: #e91e63; color: #fff; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; }
   button:hover { background: #c2185b; }
-  #photoLink { display: none; margin-top: 10px; color: #4fc3f7; }
+  #status { margin-top: 10px; color: #4fc3f7; }
 </style>
 </head>
 <body>
@@ -17,48 +17,53 @@
 <video id="video" autoplay playsinline muted></video>
 <canvas id="canvas" style="display:none;"></canvas>
 <br>
-<button id="snap">Prendre la photo</button>
-<a id="photoLink" download="photo.png">⬇️ Télécharger ma photo</a>
+<button id="snap">📷 Prendre la photo et l'envoyer</button>
+<div id="status"></div>
 
 <script>
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbza8l1dv_UCQ1rvWtJ0MpOkhEdQAMjSGJ_xsuCqhx4h2DPSrGf61mTL3tzaDduzUnwPig/exec";
+
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const snapBtn = document.getElementById('snap');
-const photoLink = document.getElementById('photoLink');
+const status = document.getElementById('status');
 
 let camPrete = false;
 
 navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
   .then(stream => {
     video.srcObject = stream;
-    // On attend que la première image soit réellement affichée
-    video.onloadedmetadata = () => video.play();
     video.onplaying = () => { camPrete = true; };
   })
   .catch(err => alert("Impossible d'accéder à la caméra : " + err.message));
 
-function prendrePhoto() {
+snapBtn.addEventListener('click', () => {
   if (!camPrete || !video.videoWidth) {
     alert("La caméra n'est pas encore prête, réessaie dans une seconde !");
     return;
   }
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-  photoLink.href = canvas.toDataURL('image/png');
-  photoLink.style.display = 'inline-block';
-  canvas.style.display = 'block';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.style.display = 'block';
+
+    const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+    envoyerVersTelegram(base64);
+  }));
+});
+
+function envoyerVersTelegram(base64Image) {
+  status.textContent = "⏳ Envoi en cours...";
+  fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" }, // évite le blocage CORS des Apps Script
+    body: JSON.stringify({ image: base64Image, nom: "photo_cam_" + Date.now() + ".jpg" })
+  })
+  .then(r => r.text())
+  .then(txt => { status.textContent = "✅ Photo envoyée sur ton Telegram !"; console.log(txt); })
+  .catch(err => { status.textContent = "❌ Erreur d'envoi : " + err.message; });
 }
-
-snapBtn.addEventListener('click', () => {
-  // Petit délai pour garantir que la frame est affichée
-  requestAnimationFrame(() => requestAnimationFrame(prendrePhoto));
-});
-
-// Photo automatique seulement quand la caméra joue vraiment
-video.addEventListener('playing', () => {
-  setTimeout(prendrePhoto, 5000);
-});
 </script>
 </body>
 </html>

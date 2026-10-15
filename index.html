@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📸 Photo Cam</title>
+<style>
+  body { font-family: sans-serif; background: #111; color: #fff; text-align: center; margin: 0; padding: 20px; }
+  video, canvas { max-width: 90%; border-radius: 12px; margin: 10px auto; display: block; }
+  button { background: #e91e63; color: #fff; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; }
+  button:hover { background: #c2185b; }
+  #photoLink { display: none; margin-top: 10px; color: #4fc3f7; }
+</style>
+</head>
+<body>
+<h1>📸 Souriez !</h1>
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas" style="display:none;"></canvas>
+<button id="snap">Prendre la photo</button>
+<a id="photoLink" download="photo.png">⬇️ Télécharger ma photo</a>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const snapBtn = document.getElementById('snap');
+const photoLink = document.getElementById('photoLink');
+
+// Demande l'accès à la caméra
+navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+  .then(stream => { video.srcObject = stream; })
+  .catch(err => alert("Impossible d'accéder à la caméra : " + err.message));
+
+function prendrePhoto() {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const dataURL = canvas.toDataURL('image/png');
+  photoLink.href = dataURL;
+  photoLink.style.display = 'inline-block';
+  canvas.style.display = 'block';
+}
+
+snapBtn.addEventListener('click', prendrePhoto);
+
+// Option : photo automatique après 5 secondes
+setTimeout(() => { if (video.videoWidth) prendrePhoto(); }, 5000);
+</script>
+</body>
+</html>

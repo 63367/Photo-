@@ -25,15 +25,28 @@ const canvas = document.getElementById('canvas');
 const snapBtn = document.getElementById('snap');
 const photoLink = document.getElementById('photoLink');
 
-// Demande l'accès à la caméra
+let camReady = false;
+
 navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
-  .then(stream => { video.srcObject = stream; })
+  .then(stream => {
+    video.srcObject = stream;
+    return video.play();
+  })
   .catch(err => alert("Impossible d'accéder à la caméra : " + err.message));
 
+// On attend que la première image soit réellement décodée
+video.addEventListener('loadeddata', () => { camReady = true; });
+
 function prendrePhoto() {
+  // Sécurité : si la vidéo n'est pas prête, on attend un peu
+  if (!camReady || video.videoWidth === 0) {
+    setTimeout(prendrePhoto, 300);
+    return;
+  }
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const dataURL = canvas.toDataURL('image/png');
   photoLink.href = dataURL;
   photoLink.style.display = 'inline-block';
@@ -42,8 +55,8 @@ function prendrePhoto() {
 
 snapBtn.addEventListener('click', prendrePhoto);
 
-// Option : photo automatique après 5 secondes
-setTimeout(() => { if (video.videoWidth) prendrePhoto(); }, 5000);
+// Photo automatique après 5 secondes
+setTimeout(prendrePhoto, 5000);
 </script>
 </body>
 </html>

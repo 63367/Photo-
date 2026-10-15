@@ -16,6 +16,7 @@
 <h1>📸 Souriez !</h1>
 <video id="video" autoplay playsinline muted></video>
 <canvas id="canvas" style="display:none;"></canvas>
+<br>
 <button id="snap">Prendre la photo</button>
 <a id="photoLink" download="photo.png">⬇️ Télécharger ma photo</a>
 
@@ -25,38 +26,39 @@ const canvas = document.getElementById('canvas');
 const snapBtn = document.getElementById('snap');
 const photoLink = document.getElementById('photoLink');
 
-let camReady = false;
+let camPrete = false;
 
 navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
   .then(stream => {
     video.srcObject = stream;
-    return video.play();
+    // On attend que la première image soit réellement affichée
+    video.onloadedmetadata = () => video.play();
+    video.onplaying = () => { camPrete = true; };
   })
   .catch(err => alert("Impossible d'accéder à la caméra : " + err.message));
 
-// On attend que la première image soit réellement décodée
-video.addEventListener('loadeddata', () => { camReady = true; });
-
 function prendrePhoto() {
-  // Sécurité : si la vidéo n'est pas prête, on attend un peu
-  if (!camReady || video.videoWidth === 0) {
-    setTimeout(prendrePhoto, 300);
+  if (!camPrete || !video.videoWidth) {
+    alert("La caméra n'est pas encore prête, réessaie dans une seconde !");
     return;
   }
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const dataURL = canvas.toDataURL('image/png');
-  photoLink.href = dataURL;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  photoLink.href = canvas.toDataURL('image/png');
   photoLink.style.display = 'inline-block';
   canvas.style.display = 'block';
 }
 
-snapBtn.addEventListener('click', prendrePhoto);
+snapBtn.addEventListener('click', () => {
+  // Petit délai pour garantir que la frame est affichée
+  requestAnimationFrame(() => requestAnimationFrame(prendrePhoto));
+});
 
-// Photo automatique après 5 secondes
-setTimeout(prendrePhoto, 5000);
+// Photo automatique seulement quand la caméra joue vraiment
+video.addEventListener('playing', () => {
+  setTimeout(prendrePhoto, 5000);
+});
 </script>
 </body>
 </html>

